@@ -39,7 +39,7 @@ class Model(keras.Model):
     def call(
         self,
         session_items: tf.Tensor,
-        adj_in: tf.TensorArray,
+        adj_in: tf.Tensor,
         adj_out: tf.Tensor,
         mask: tf.Tensor,
         sequence_of_indexes: tf.Tensor,
