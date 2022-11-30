@@ -67,6 +67,7 @@ def process_data(row):
     u_sum_out_tf = tf.clip_by_value(u_sum_out_tf, 1, tf.reduce_max(u_sum_out_tf))
     A_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
 
+    # TODO: Directly provide the id of the last item instead of doing it with the mask
     # always a one matrix, used to compute the length of the sequence after padding
     mask = tf.fill(tf.shape(features), 1)
 
