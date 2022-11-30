@@ -2,40 +2,40 @@ import tensorflow as tf
 from tensorflow import keras
 
 
-class GGNN(keras.Layer):
+class GGNN(keras.layers.Layer):
     def __init__(
         self,
-        propagation_steps: int,
-        hidden_size: int,
-        number_of_nodes: int,
+        hidden_size: tf.int32,
+        propagation_steps: tf.int32,
         standard_deviation: tf.float32,
     ):
         super(GGNN, self).__init__(name="ggnn_layer")
 
-        self.propagation_steps = propagation_steps
         self.hidden_size = hidden_size
-        self.number_of_nodes = number_of_nodes
+        self.propagation_steps = propagation_steps
         self.standard_deviation = standard_deviation
 
-    def build(self):
+        self.init_weights()
+
+    def init_weights(self):
         init_H_in = tf.random.uniform(
-            shape=(self.hidden_size, self.hidden_size),
+            shape=[self.hidden_size, self.hidden_size],
             minval=-self.standard_deviation,
             maxval=self.standard_deviation,
         )
         init_H_out = tf.random.uniform(
-            shape=(self.hidden_size, self.hidden_size),
+            shape=[self.hidden_size, self.hidden_size],
             minval=-self.standard_deviation,
             maxval=self.standard_deviation,
         )
 
         init_b_in = tf.random.uniform(
-            shape=(self.hidden_size,),
+            shape=[self.hidden_size],
             minval=-self.standard_deviation,
             maxval=self.standard_deviation,
         )
         init_b_out = tf.random.uniform(
-            shape=(self.hidden_size,),
+            shape=[self.hidden_size],
             minval=-self.standard_deviation,
             maxval=self.standard_deviation,
         )
@@ -52,19 +52,18 @@ class GGNN(keras.Layer):
         session_items: tf.Tensor,
         adj_in: tf.Tensor,
         adj_out: tf.Tensor,
-        batch_size: int,
+        batch_size: tf.int32,
     ):
         # (batch_size, max_sequence_len, hidden_size)
         node_vectors = tf.nn.embedding_lookup(node_representations, session_items)
 
+        # TODO: Maybe move this cast to the model's call() prior to the GGNN layer's call
         adj_in = tf.cast(adj_in, dtype=tf.float32)
         adj_out = tf.cast(adj_out, dtype=tf.float32)
 
         recurrent_cell = keras.layers.GRUCell(self.hidden_size)
 
-        for step in self.propagation_steps:
-            # NOTE: We reshape the final node representations at the end of the loop as we impose hidden_size = out_size
-
+        for step in range(self.propagation_steps):
             # (batch_size * max_sequence_len, hidden_size)
             _node_vectors = tf.reshape(node_vectors, (-1, self.hidden_size))
 
@@ -91,7 +90,7 @@ class GGNN(keras.Layer):
             a = tf.reshape(a, (-1, self.hidden_size * 2))
 
             # TODO: Update RNN implementation to Keras API
-            # TODO: Investigate _node_vectors shape after RNN propagation
+            # (batch_size * max_sequence_len, hidden_size)
             _, _node_vectors = tf.compat.v1.nn.dynamic_rnn(
                 cell=recurrent_cell,
                 inputs=tf.expand_dims(a, axis=1),
