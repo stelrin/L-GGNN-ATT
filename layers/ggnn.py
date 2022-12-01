@@ -54,7 +54,7 @@ class GGNN(keras.layers.Layer):
         adj_out: tf.Tensor,
         batch_size: tf.int32,
     ):
-        # (batch_size, max_sequence_len, hidden_size)
+        # (batch_size, max_number_of_nodes, hidden_size)
         node_vectors = tf.nn.embedding_lookup(node_representations, session_items)
 
         # TODO: Maybe move this cast to the model's call() prior to the GGNN layer's call
@@ -64,14 +64,14 @@ class GGNN(keras.layers.Layer):
         recurrent_cell = keras.layers.GRUCell(self.hidden_size)
 
         for step in range(self.propagation_steps):
-            # (batch_size * max_sequence_len, hidden_size)
+            # (batch_size * max_number_of_nodes, hidden_size)
             _node_vectors = tf.reshape(node_vectors, (-1, self.hidden_size))
 
-            # (batch_size * max_sequence_len, hidden_size)
+            # (batch_size * max_number_of_nodes, hidden_size)
             node_vectors_in = tf.matmul(_node_vectors, self.H_in) + self.b_in
             node_vectors_out = tf.matmul(_node_vectors, self.H_out) + self.b_out
 
-            # (batch_size, max_sequence_len, hidden_size)
+            # (batch_size, max_number_of_nodes, hidden_size)
             node_vectors_in = tf.reshape(
                 node_vectors_in, (batch_size, -1, self.hidden_size)
             )
@@ -79,14 +79,14 @@ class GGNN(keras.layers.Layer):
                 node_vectors_out, (batch_size, -1, self.hidden_size)
             )
 
-            # (batch_size, max_sequence_len, hidden_size)
+            # (batch_size, max_number_of_nodes, hidden_size)
             a_in = tf.matmul(adj_in, node_vectors_in)
             a_out = tf.matmul(adj_out, node_vectors_out)
 
-            # (batch_size, max_sequence_len, hidden_size * 2)
+            # (batch_size, max_number_of_nodes, hidden_size * 2)
             a = tf.concat([a_in, a_out], axis=-1)
 
-            # (batch_size * max_sequence_len, hidden_size * 2)
+            # (batch_size * max_number_of_nodes, hidden_size * 2)
             a = tf.reshape(a, (-1, self.hidden_size * 2))
 
             # TODO: Update RNN implementation to Keras API
@@ -97,7 +97,7 @@ class GGNN(keras.layers.Layer):
                 initial_state=_node_vectors,
             )
 
-            # (batch_size, max_sequence_len, hidden_size)
+            # (batch_size, max_number_of_nodes, hidden_size)
             _node_vectors = tf.reshape(
                 _node_vectors, (batch_size, -1, self.hidden_size)
             )
