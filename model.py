@@ -3,10 +3,16 @@ import tensorflow as tf
 from tensorflow import keras
 
 from layers.ggnn import GGNN
+from layers.soft_attention import SessionGraphSoftAttention
 
 
 class Model(keras.Model):
-    def __init__(self, number_of_nodes: tf.int32, propagation_steps: tf.int32, hidden_size: tf.int32):
+    def __init__(
+        self,
+        number_of_nodes: tf.int32,
+        propagation_steps: tf.int32,
+        hidden_size: tf.int32,
+    ):
         super(Model, self).__init__(name="sr_gnn")
 
         self.number_of_nodes = number_of_nodes
@@ -33,6 +39,9 @@ class Model(keras.Model):
         )
 
         # soft_attention(hidden_size, standard_deviation)
+        self.soft_attention = SessionGraphSoftAttention(
+            hidden_size=self.hidden_size, standard_deviation=self.standard_deviation
+        )
 
         # linear_transformation(hidden_size, standard_deviation)
 
@@ -45,10 +54,9 @@ class Model(keras.Model):
         sequence_of_indexes: tf.Tensor,
         target: tf.Tensor,
     ):
-        # TODO: Compute batch_size from items' 0-axis size
         batch_size = tf.shape(session_items)[0]
 
-        # (batch_size, max_sequence_len, hidden_size)
+        # (batch_size, max_number_of_nodes, hidden_size)
         node_vectors = self.ggnn(
             node_representations=self.node_representations,
             session_items=session_items,
@@ -57,7 +65,14 @@ class Model(keras.Model):
             batch_size=batch_size,
         )
 
-        # soft_attention(mask, sequence_of_indexes, batch_size, final_state, node_representations) -> session_graph_representation, session_local_representation
+        # (batch_size, hidden_size), (batch_size, hidden_size)
+        session_local_representation, session_graph_representation = self.soft_attention(
+            sequence_of_indexes=sequence_of_indexes,
+            mask=mask,
+            node_vectors=node_vectors,
+            batch_size=batch_size,
+        )
+
         # linear_transformation(session_graph_representation, session_local_representation) -> session_representation
 
         # Softmax classification
