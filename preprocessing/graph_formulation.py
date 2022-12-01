@@ -76,6 +76,7 @@ def process_data(row):
 # TODO: Move this to prime_dataset.py
 class DatasetMetadata(NamedTuple):
     name: str
+    max_number_of_nodes: int
     max_sequence_len: int
     item_count: int
 
@@ -105,12 +106,12 @@ def get_dataset(
     dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
-            [dataset_info.item_count, dataset_info.item_count],    # A_in
-            [dataset_info.item_count, dataset_info.item_count],    # A_out
-            [dataset_info.max_sequence_len],                       # sequence_of_indexes
-            [dataset_info.item_count],                             # session_items
-            [dataset_info.max_sequence_len],                       # mask
-            [],                                                    # target
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],    # A_in
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],    # A_out
+            [dataset_info.max_sequence_len],                                         # sequence_of_indexes
+            [dataset_info.max_number_of_nodes],                                      # session_items
+            [dataset_info.max_sequence_len],                                         # mask
+            [],                                                                      # target
         ),
     )
 
