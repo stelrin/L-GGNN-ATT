@@ -58,10 +58,10 @@ class GGNN(keras.layers.Layer):
 
         recurrent_cell = keras.layers.GRUCell(self.hidden_size)
 
-        for step in range(self.propagation_steps):
-            # (batch_size * max_number_of_nodes, hidden_size)
-            _node_vectors = tf.reshape(node_vectors, (-1, self.hidden_size))
+        # (batch_size * max_number_of_nodes, hidden_size)
+        _node_vectors = tf.reshape(node_vectors, (-1, self.hidden_size))
 
+        for step in range(self.propagation_steps):
             # (batch_size * max_number_of_nodes, hidden_size)
             node_vectors_in = self.linear_message_passing_in(_node_vectors)
             node_vectors_out = self.linear_message_passing_out(_node_vectors)
@@ -85,16 +85,14 @@ class GGNN(keras.layers.Layer):
             a = tf.reshape(a, (-1, self.hidden_size * 2))
 
             # TODO: Update RNN implementation to Keras API
-            # (batch_size * max_sequence_len, hidden_size)
+            # (batch_size * max_number_of_nodes, hidden_size)
             _, _node_vectors = tf.compat.v1.nn.dynamic_rnn(
                 cell=recurrent_cell,
                 inputs=tf.expand_dims(a, axis=1),
                 initial_state=_node_vectors,
             )
 
-            # (batch_size, max_number_of_nodes, hidden_size)
-            _node_vectors = tf.reshape(
-                _node_vectors, (batch_size, -1, self.hidden_size)
-            )
+        # (batch_size, max_number_of_nodes, hidden_size)
+        node_vectors = tf.reshape(_node_vectors, (batch_size, -1, self.hidden_size))
 
-        return _node_vectors
+        return node_vectors
