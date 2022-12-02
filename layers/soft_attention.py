@@ -18,8 +18,8 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         self.init_weights()
 
     def init_weights(self):
-        self.dense_last_item = keras.layers.Dense(
-            name="dense_last_item",
+        self.linear_last_item = keras.layers.Dense(
+            name="linear_last_item",
             units=self.hidden_size,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(
@@ -28,8 +28,8 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             use_bias=False,
         )
 
-        self.dense_sequence_items = keras.layers.Dense(
-            name="dense_sequence_items",
+        self.linear_sequence_items = keras.layers.Dense(
+            name="linear_sequence_items",
             units=self.hidden_size,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(
@@ -38,8 +38,8 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             bias_initializer=tf.initializers.Zeros(),
         )
 
-        self.dense_alpha = keras.layers.Dense(
-            name="dense_alpha",
+        self.linear_alpha = keras.layers.Dense(
+            name="linear_alpha",
             units=1,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(
@@ -48,9 +48,9 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             use_bias=False,
         )
 
-        self.dense_last_item.build(self.hidden_size)
-        self.dense_sequence_items.build(self.hidden_size)
-        self.dense_alpha.build(self.hidden_size)
+        self.linear_last_item.build(self.hidden_size)
+        self.linear_sequence_items.build(self.hidden_size)
+        self.linear_alpha.build(self.hidden_size)
 
     def get_last_item_representation(
         self,
@@ -100,11 +100,11 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         )
 
         # (batch_size, hidden_size)
-        v_n_post_dense = self.dense_last_item(v_n)
+        v_n_post_linear = self.linear_last_item(v_n)
 
         # Shape change to allow for an addition broadcasting later on (cf. sigmoid_result)
         # (batch_size, 1, hidden_size)
-        _v_n_post_dense = tf.reshape(v_n_post_dense, [batch_size, 1, self.hidden_size])
+        _v_n_post_linear = tf.reshape(v_n_post_linear, [batch_size, 1, self.hidden_size])
 
         # (batch_size, max_sequence_len, hidden_size)
         v_i = tf.stack(
@@ -119,20 +119,20 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         _v_i = tf.reshape(v_i, [-1, self.hidden_size])
 
         # (batch_size * max_sequence_len, hidden_size)
-        v_i_post_dense = self.dense_sequence_items(_v_i)
+        v_i_post_linear = self.linear_sequence_items(_v_i)
 
         # (batch_size, max_sequence_len, hidden_size)
-        _v_i_post_dense = tf.reshape(v_i_post_dense, [batch_size, -1, self.hidden_size])
+        _v_i_post_linear = tf.reshape(v_i_post_linear, [batch_size, -1, self.hidden_size])
 
         # We add v_n to each item v_i with addition broadcasting, then we sigmoid the result
         # (batch_size, max_sequence_len, hidden_size)
-        sigmoid_result = tf.sigmoid(_v_n_post_dense + _v_i_post_dense)
+        sigmoid_result = tf.sigmoid(_v_n_post_linear + _v_i_post_linear)
 
         # (batch_size * max_sequence_len, hidden_size)
         _sigmoid_result = tf.reshape(sigmoid_result, [-1, self.hidden_size])
 
         # (batch_size * max_sequence_len, 1)
-        alpha = self.dense_alpha(_sigmoid_result)
+        alpha = self.linear_alpha(_sigmoid_result)
 
         # We get rid of the 0-indexed fictional item so it doesn't affect the aggregation
         # (batch_size * max_sequence_len, 1)
