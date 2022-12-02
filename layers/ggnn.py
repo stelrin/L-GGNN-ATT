@@ -18,33 +18,28 @@ class GGNN(keras.layers.Layer):
         self.init_weights()
 
     def init_weights(self):
-        init_H_in = tf.random.uniform(
-            shape=[self.hidden_size, self.hidden_size],
-            minval=-self.standard_deviation,
-            maxval=self.standard_deviation,
-        )
-        init_H_out = tf.random.uniform(
-            shape=[self.hidden_size, self.hidden_size],
-            minval=-self.standard_deviation,
-            maxval=self.standard_deviation,
+        standard_deviation_initializer = tf.initializers.RandomUniform(
+            minval=-self.standard_deviation, maxval=self.standard_deviation
         )
 
-        init_b_in = tf.random.uniform(
-            shape=[self.hidden_size],
-            minval=-self.standard_deviation,
-            maxval=self.standard_deviation,
-        )
-        init_b_out = tf.random.uniform(
-            shape=[self.hidden_size],
-            minval=-self.standard_deviation,
-            maxval=self.standard_deviation,
+        self.linear_message_passing_in = keras.layers.Dense(
+            name="linear_message_passing_in",
+            units=self.hidden_size,
+            activation=None,
+            kernel_initializer=standard_deviation_initializer,
+            bias_initializer=standard_deviation_initializer,
         )
 
-        self.H_in = tf.Variable(init_H_in, name="H_in", dtype=tf.float32)
-        self.H_out = tf.Variable(init_H_out, name="H_out", dtype=tf.float32)
+        self.linear_message_passing_out = keras.layers.Dense(
+            name="linear_message_passing_out",
+            units=self.hidden_size,
+            activation=None,
+            kernel_initializer=standard_deviation_initializer,
+            bias_initializer=standard_deviation_initializer,
+        )
 
-        self.b_in = tf.Variable(init_b_in, name="b_in", dtype=tf.float32)
-        self.b_out = tf.Variable(init_b_out, name="b_out", dtype=tf.float32)
+        self.linear_message_passing_in.build(self.hidden_size)
+        self.linear_message_passing_out.build(self.hidden_size)
 
     def call(
         self,
@@ -68,8 +63,8 @@ class GGNN(keras.layers.Layer):
             _node_vectors = tf.reshape(node_vectors, (-1, self.hidden_size))
 
             # (batch_size * max_number_of_nodes, hidden_size)
-            node_vectors_in = tf.matmul(_node_vectors, self.H_in) + self.b_in
-            node_vectors_out = tf.matmul(_node_vectors, self.H_out) + self.b_out
+            node_vectors_in = self.linear_message_passing_in(_node_vectors)
+            node_vectors_out = self.linear_message_passing_out(_node_vectors)
 
             # (batch_size, max_number_of_nodes, hidden_size)
             node_vectors_in = tf.reshape(
