@@ -3,6 +3,7 @@ import tensorflow as tf
 from functools import partial
 from typing import NamedTuple
 
+
 def generator(data):
     for example in data:
         yield example
@@ -27,15 +28,11 @@ def process_data(row):
     n_nodes = tf.shape(session_items)[0]
     indices = tf.gather(
         sequence_of_indexes,
-        tf.stack(
-            [tf.range(vector_length - 1), tf.range(vector_length - 1) + 1], axis=0
-        ),
+        tf.stack([tf.range(vector_length - 1), tf.range(vector_length - 1) + 1], axis=0),
     )  # Stack and stagger values
 
     # TODO: Change graph formulation here
-    unique_indices, _ = tf.unique(
-        indices[0] * (vector_length + 1) + indices[1]
-    )  # unique(a*x + b)
+    unique_indices, _ = tf.unique(indices[0] * (vector_length + 1) + indices[1])  # unique(a*x + b)
 
     unique_indices = tf.sort(unique_indices)  # Sort ascendingly
     unique_indices = tf.stack(
@@ -52,9 +49,7 @@ def process_data(row):
     dense_shape = tf.cast([n_nodes, n_nodes], tf.int64)
 
     # (n_node, n_node) adjacency matrix
-    adj = tf.SparseTensor(
-        indices=unique_indices, values=values, dense_shape=dense_shape
-    )
+    adj = tf.SparseTensor(indices=unique_indices, values=values, dense_shape=dense_shape)
     adj = tf.sparse.to_dense(adj)
 
     # formulating incoming adjacency matrix
@@ -73,6 +68,7 @@ def process_data(row):
 
     return A_in, A_out, sequence_of_indexes, session_items, mask, target
 
+
 # TODO: Move this to prime_dataset.py
 class DatasetMetadata(NamedTuple):
     name: str
@@ -82,23 +78,13 @@ class DatasetMetadata(NamedTuple):
 
 
 # TODO: Store dataset related metadata somewhere else instead of feeding it to get_dataset (maybe a Dataset class would do)
-def get_dataset(
-    dataset_info: DatasetMetadata,
-    batch_size: int,
-    train: bool = True,
-):
+def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = True):
     with open(f"datasets/{dataset_info.name}/{'train' if train else 'test'}.csv", "r") as preprocessed_file:
-        data = [
-            list(map(int, rec)) for rec in csv.reader(preprocessed_file, delimiter=",")
-        ]
+        data = [list(map(int, rec)) for rec in csv.reader(preprocessed_file, delimiter=",")]
 
-    dataset = tf.data.Dataset.from_generator(
-        partial(generator, data), output_types=(tf.int32)
-    )
+    dataset = tf.data.Dataset.from_generator(partial(generator, data), output_types=(tf.int32))
 
-    dataset = dataset.map(
-        process_data, num_parallel_calls=tf.data.experimental.AUTOTUNE
-    )
+    dataset = dataset.map(process_data, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # TODO: shuffle should take the size of the train/test dataset
     dataset = dataset.shuffle(100000)
@@ -106,12 +92,12 @@ def get_dataset(
     dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
-            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],    # A_in
-            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],    # A_out
-            [dataset_info.max_sequence_len],                                         # sequence_of_indexes
-            [dataset_info.max_number_of_nodes],                                      # session_items
-            [dataset_info.max_sequence_len],                                         # mask
-            [],                                                                      # target
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # A_in
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # A_out
+            [dataset_info.max_sequence_len],  # sequence_of_indexes
+            [dataset_info.max_number_of_nodes],  # session_items
+            [dataset_info.max_sequence_len],  # mask
+            [],  # target
         ),
     )
 

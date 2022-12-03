@@ -13,7 +13,6 @@ class SessionRepresentationLinearTransformation(keras.layers.Layer):
 
     def init_weights(self):
         standard_deviation_initializer = tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation)
-
         self.linear_transformation = keras.layers.Dense(activation=None, name="linear_transformation", units=self.hidden_size, kernel_initializer=standard_deviation_initializer, use_bias=False)
 
         self.linear_transformation.build(self.hidden_size * 2)

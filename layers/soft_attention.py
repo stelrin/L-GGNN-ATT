@@ -3,14 +3,8 @@ from tensorflow import keras
 
 
 class SessionGraphSoftAttention(keras.layers.Layer):
-    def __init__(
-        self,
-        hidden_size: tf.int32,
-        standard_deviation: tf.float32,
-    ):
-        super(SessionGraphSoftAttention, self).__init__(
-            name="session_graph_soft_attention"
-        )
+    def __init__(self, hidden_size: tf.int32, standard_deviation: tf.float32):
+        super(SessionGraphSoftAttention, self).__init__(name="session_graph_soft_attention")
 
         self.hidden_size = hidden_size
         self.standard_deviation = standard_deviation
@@ -22,9 +16,7 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             name="linear_last_item",
             units=self.hidden_size,
             activation=None,
-            kernel_initializer=tf.initializers.RandomUniform(
-                minval=-self.standard_deviation, maxval=self.standard_deviation
-            ),
+            kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             use_bias=False,
         )
 
@@ -32,9 +24,7 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             name="linear_sequence_items",
             units=self.hidden_size,
             activation=None,
-            kernel_initializer=tf.initializers.RandomUniform(
-                minval=-self.standard_deviation, maxval=self.standard_deviation
-            ),
+            kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             bias_initializer=tf.initializers.Zeros(),
         )
 
@@ -42,9 +32,7 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             name="linear_alpha",
             units=1,
             activation=None,
-            kernel_initializer=tf.initializers.RandomUniform(
-                minval=-self.standard_deviation, maxval=self.standard_deviation
-            ),
+            kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             use_bias=False,
         )
 
@@ -52,52 +40,30 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         self.linear_sequence_items.build(self.hidden_size)
         self.linear_alpha.build(self.hidden_size)
 
-    def get_last_item_representation(
-        self,
-        mask: tf.Tensor,
-        sequence_of_indexes: tf.Tensor,
-        node_vectors: tf.Tensor,
-        batch_size: tf.int32,
-    ):
-        # The length of each sequence in the batch
+    def get_last_item_representation(self, mask: tf.Tensor, sequence_of_indexes: tf.Tensor, node_vectors: tf.Tensor, batch_size: tf.int32):
         # (batch_size,)
         sequence_length = tf.reduce_sum(mask, axis=1)
 
-        # The indexes of the last item of each sequence in the batch
         # (batch_size,)
         last_item_index = tf.gather_nd(
             sequence_of_indexes,
             tf.stack(
-                [tf.range(batch_size), tf.cast(sequence_length, tf.int32) - 1], axis=1
+                [tf.range(batch_size), tf.cast(sequence_length, tf.int32) - 1],
+                axis=1,
             ),
         )
 
-        # The hidden representation of each last item in the sequences of the batch
         # (batch_size, hidden_size)
-        last_item_representation = tf.gather_nd(
-            node_vectors, tf.stack([tf.range(batch_size), last_item_index], axis=1)
-        )
+        last_item_representation = tf.gather_nd(node_vectors, tf.stack([tf.range(batch_size), last_item_index], axis=1))
 
         return last_item_representation
 
-    def call(
-        self,
-        sequence_of_indexes: tf.Tensor,
-        mask: tf.Tensor,
-        node_vectors: tf.Tensor,
-        batch_size: tf.int32,
-    ):
-        # mask is always a matrix of ones to figure the length of each session in the batch as they are padded
+    def call(self, sequence_of_indexes: tf.Tensor, mask: tf.Tensor, node_vectors: tf.Tensor, batch_size: tf.int32):
         # (batch_size, max_sequence_len)
         mask = tf.cast(mask, tf.float32)
 
         # (batch_size, hidden_size)
-        v_n = self.get_last_item_representation(
-            mask=mask,
-            sequence_of_indexes=sequence_of_indexes,
-            node_vectors=node_vectors,
-            batch_size=batch_size,
-        )
+        v_n = self.get_last_item_representation(mask=mask, sequence_of_indexes=sequence_of_indexes, node_vectors=node_vectors, batch_size=batch_size)
 
         # (batch_size, hidden_size)
         v_n_post_linear = self.linear_last_item(v_n)
@@ -108,10 +74,7 @@ class SessionGraphSoftAttention(keras.layers.Layer):
 
         # (batch_size, max_sequence_len, hidden_size)
         v_i = tf.stack(
-            [
-                tf.nn.embedding_lookup(node_vectors[i], sequence_of_indexes[i])
-                for i in range(batch_size)
-            ],
+            [tf.nn.embedding_lookup(node_vectors[i], sequence_of_indexes[i]) for i in range(batch_size)],
             axis=0,
         )
 
