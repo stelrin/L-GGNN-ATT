@@ -4,6 +4,7 @@ from tensorflow import keras
 
 from layers.ggnn import GGNN
 from layers.soft_attention import SessionGraphSoftAttention
+from layers.linear_transformation import SessionRepresentationLinearTransformation
 
 
 class Model(keras.Model):
@@ -26,11 +27,7 @@ class Model(keras.Model):
             minval=-self.standard_deviation,
             maxval=self.standard_deviation,
         )
-        self.node_representations = tf.Variable(
-            init_node_representations, name="node_representations", dtype=tf.float32
-        )
-
-        # TODO: Declare model layers here
+        self.node_representations = tf.Variable(init_node_representations, name="node_representations", dtype=tf.float32)
 
         self.ggnn = GGNN(
             hidden_size=self.hidden_size,
@@ -38,12 +35,9 @@ class Model(keras.Model):
             standard_deviation=self.standard_deviation,
         )
 
-        # soft_attention(hidden_size, standard_deviation)
-        self.soft_attention = SessionGraphSoftAttention(
-            hidden_size=self.hidden_size, standard_deviation=self.standard_deviation
-        )
+        self.soft_attention = SessionGraphSoftAttention(hidden_size=self.hidden_size, standard_deviation=self.standard_deviation)
 
-        # linear_transformation(hidden_size, standard_deviation)
+        self.linear_transformation = SessionRepresentationLinearTransformation(hidden_size=self.hidden_size, standard_deviation=self.standard_deviation)
 
     def call(
         self,
@@ -66,14 +60,20 @@ class Model(keras.Model):
         )
 
         # (batch_size, hidden_size), (batch_size, hidden_size)
-        session_local_representation, session_graph_representation = self.soft_attention(
+        (session_local_representation, session_graph_representation,) = self.soft_attention(
             sequence_of_indexes=sequence_of_indexes,
             mask=mask,
             node_vectors=node_vectors,
             batch_size=batch_size,
         )
 
-        # linear_transformation(session_graph_representation, session_local_representation) -> session_representation
+        # (batch_size, hidden_size)
+        session_representation = self.linear_transformation(
+            session_local_representation=session_local_representation,
+            session_graph_representation=session_graph_representation,
+        )
+
+        print(session_representation)
 
         # Softmax classification
 
