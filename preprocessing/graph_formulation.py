@@ -9,7 +9,7 @@ def generator(data):
         yield example
 
 
-def process_data(row):
+def graph_formulation(row):
     # All the interactions in the sequence except the last one
     features = row[:-1]
 
@@ -55,18 +55,18 @@ def process_data(row):
     # formulating incoming adjacency matrix
     u_sum_in_tf = tf.math.reduce_sum(adj, 0)
     u_sum_in_tf = tf.clip_by_value(u_sum_in_tf, 1, tf.reduce_max(u_sum_in_tf))
-    A_in = tf.math.divide(adj, u_sum_in_tf)
+    adj_in = tf.math.divide(adj, u_sum_in_tf)
 
     # formulating outgoing adjacency matrix
     u_sum_out_tf = tf.math.reduce_sum(adj, 1)
     u_sum_out_tf = tf.clip_by_value(u_sum_out_tf, 1, tf.reduce_max(u_sum_out_tf))
-    A_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
+    adj_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
 
     # TODO: Directly provide the id of the last item instead of doing it with the mask
     # always a one matrix, used to compute the length of the sequence after padding
     mask = tf.fill(tf.shape(features), 1)
 
-    return A_in, A_out, sequence_of_indexes, session_items, mask, target
+    return adj_in, adj_out, sequence_of_indexes, session_items, mask, target
 
 
 # TODO: Move this to prime_dataset.py
@@ -84,7 +84,7 @@ def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = Tr
 
     dataset = tf.data.Dataset.from_generator(partial(generator, data), output_types=(tf.int32))
 
-    dataset = dataset.map(process_data, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = dataset.map(graph_formulation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # TODO: shuffle should take the size of the train/test dataset
     dataset = dataset.shuffle(100000)
@@ -92,8 +92,8 @@ def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = Tr
     dataset = dataset.padded_batch(
         batch_size=batch_size,
         padded_shapes=(
-            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # A_in
-            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # A_out
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # adj_in
+            [dataset_info.max_number_of_nodes, dataset_info.max_number_of_nodes],  # adj_out
             [dataset_info.max_sequence_len],  # sequence_of_indexes
             [dataset_info.max_number_of_nodes],  # session_items
             [dataset_info.max_sequence_len],  # mask
