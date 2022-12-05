@@ -50,9 +50,11 @@ class Model(keras.Model):
             session_graph_representation=session_graph_representation,
         )
 
-        print(session_representation)
+        # The first element is not a real item, it's just there because item ids start at 1
+        node_representations = self.node_representations[1:]
 
-        # Softmax classification
+        # (batch_size, number_of_nodes)
+        # The actual number of items in the dataset, without the added 1
+        logits = tf.matmul(session_representation, node_representations, transpose_b=True)
 
-        # Returns classification logits, loss is computed in the training loop
-        pass
+        return logits
