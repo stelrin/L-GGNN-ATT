@@ -19,7 +19,12 @@ DECAY_RATE = 0.1
 # Regularization parameters
 L2_PENALTY = 10**-5
 
+# Metrics parameters
+# TODO: Do not forget to set these to 20 when you're done debugging
+PRECISION_TOP_K = 4
+MRR_TOP_K = 4
 
+# TODO: Should this function only handle the training loop or should it also handle the testing loop?
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
     losses = []
 
@@ -36,6 +41,7 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
             )
 
             # (batch_size,)
+            # We subtract 1 of the targets because the first element is not a real item, it's just there because item ids start at 1
             batch_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target - 1, logits=logits)
 
             # (None,)
@@ -52,6 +58,51 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
         losses.append(batch_loss.numpy())
 
     return losses
+
+
+def testing_loop(model: Model, dataset: tf.data.Dataset):
+
+    metric_precision = tf.keras.metrics.Precision(top_k=PRECISION_TOP_K)
+
+    for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in dataset:
+        # (batch_size, item_count - 1)
+        logits = model(
+            adj_in=adj_in,
+            adj_out=adj_out,
+            sequence_of_indexes=sequence_of_indexes,
+            session_items=session_items,
+            mask=mask,
+            target=target,
+        )
+
+        # (batch_size, item_count - 1)
+        softmax_logits = tf.nn.softmax(logits)
+
+        # (batch_size, item_count - 1)
+        dense_target = sparse_to_dense_target(target, tf.shape(softmax_logits)[1])
+
+        # P@20
+        metric_precision.update_state(y_pred=softmax_logits, y_true=dense_target)
+
+    precision = metric_precision.result().numpy()
+
+    return precision, None
+
+
+# TODO: Move this to a utils file
+def sparse_to_dense_target(target: tf.Tensor, item_count: int):
+    target = target - 1  # We subtract 1 of the targets because the first element is not a real item, it's just there because item ids start at 1
+
+    # Sparse to dense classification targets
+    sparse_target = tf.sparse.SparseTensor(
+        values=tf.ones_like(target),
+        indices=[[i, target[i]] for i in range(len(target))],
+        dense_shape=[tf.shape(target)[0], item_count],  # (batch_size, item_count - 1)
+    )
+
+    dense_target = tf.sparse.to_dense(sparse_target)
+
+    return dense_target
 
 
 def main():
@@ -82,7 +133,9 @@ def main():
 
     losses = training_loop(model, train_dataset, optimizer, train=True)
 
-    # TODO: Calculate performance metrics (P@20, MRR@20) after testing
+    precision, mrr = testing_loop(model, test_dataset)
+
+    print(f"Precision@20: {precision * 100.0}%")
 
 
 if __name__ == "__main__":
