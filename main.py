@@ -16,12 +16,16 @@ INITIAL_LEARNING_RATE = 0.001
 DECAY_STEP = 3
 DECAY_RATE = 0.1
 
+# Regularization parameters
+L2_PENALTY = 10 ^ -5
+
 
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
     losses = []
 
     for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in dataset:
         with tf.GradientTape() as tape:
+            # (batch_size, item_count - 1)
             logits = model(
                 adj_in=adj_in,
                 adj_out=adj_out,
@@ -31,25 +35,33 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
                 target=target,
             )
 
+            # (batch_size,)
             batch_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target - 1, logits=logits)
 
-        if train:
-            gradients = tape.gradient(batch_loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            # (None,)
+            batch_loss = tf.reduce_mean(batch_loss)
 
-        losses.append(batch_loss)
+            if train:
+                # Applying L2 regularization on all trainable variables
+                l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in model.trainable_variables]) * L2_PENALTY
+                batch_loss += l2_loss
+
+                gradients = tape.gradient(batch_loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+
+        losses.append(batch_loss.numpy())
 
     return losses
 
 
 def main():
-    item_count, max_sequence_len, max_number_of_nodes, train_dataset_len, test_dataset_len = get_dataset_metadata(DATASET_NAME)
-
-    print(item_count)  # How many items there are in the dataset, +1 for that 0-indexed item that we discard
-    print(max_sequence_len)  # The length of the longest session in the train/test dataset
-    print(max_number_of_nodes)  # The maximum number of unique items there is in a session in the dataset
-    print(train_dataset_len)  # The size of the train dataset
-    print(test_dataset_len)  # The size of the test dataset
+    (
+        item_count, # How many items there are in the dataset, plus one (+1) for that 0-indexed item that we discard
+        max_sequence_len, # The length of the longest session in the train/test dataset
+        max_number_of_nodes, # The maximum number of unique items there is in a session in the dataset
+        train_dataset_len, # The size of the train dataset
+        test_dataset_len, # The size of the test dataset
+    ) = get_dataset_metadata(DATASET_NAME)
 
     dataset_metadata = DatasetMetadata(
         name="test",
@@ -67,13 +79,10 @@ def main():
     DECAY = DECAY_STEP * (train_dataset_len / BATCH_SIZE)  # Decay every 3 epochs relative to the batch size
     decaying_learning_rate = keras.optimizers.schedules.ExponentialDecay(INITIAL_LEARNING_RATE, DECAY, DECAY_RATE, staircase=True)
     optimizer = keras.optimizers.Adam(decaying_learning_rate)
-    
-    # FIXME: L2 penalty 10^⁻5. This is not implemented yet!
-    unpenaltied_losses = training_loop(model, train_dataset, optimizer, train=True)
-    
-    print(unpenaltied_losses)
 
-    # NOTE: Calculate performance metrics (P@20, MRR@20)
+    losses = training_loop(model, train_dataset, optimizer, train=True)
+
+    # TODO: Calculate performance metrics (P@20, MRR@20) after testing
 
 
 if __name__ == "__main__":
