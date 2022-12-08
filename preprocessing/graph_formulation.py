@@ -62,7 +62,6 @@ def graph_formulation(row):
     u_sum_out_tf = tf.clip_by_value(u_sum_out_tf, 1, tf.reduce_max(u_sum_out_tf))
     adj_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
 
-    # TODO: Directly provide the id of the last item instead of doing it with the mask
     # always a one matrix, used to compute the length of the sequence after padding
     mask = tf.fill(tf.shape(features), 1)
 
@@ -77,7 +76,6 @@ class DatasetMetadata(NamedTuple):
     item_count: int
 
 
-# TODO: Store dataset related metadata somewhere else instead of feeding it to get_dataset (maybe a Dataset class would do)
 def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = True):
     with open(f"datasets/{dataset_info.name}/{'train' if train else 'test'}.csv", "r") as preprocessed_file:
         data = [list(map(int, rec)) for rec in csv.reader(preprocessed_file, delimiter=",")]
