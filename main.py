@@ -17,7 +17,7 @@ DECAY_STEP = 3
 DECAY_RATE = 0.1
 
 # Regularization parameters
-L2_PENALTY = 10 ^ -5
+L2_PENALTY = 10**-5
 
 
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
@@ -56,11 +56,11 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
 
 def main():
     (
-        item_count, # How many items there are in the dataset, plus one (+1) for that 0-indexed item that we discard
-        max_sequence_len, # The length of the longest session in the train/test dataset
-        max_number_of_nodes, # The maximum number of unique items there is in a session in the dataset
-        train_dataset_len, # The size of the train dataset
-        test_dataset_len, # The size of the test dataset
+        item_count,  # How many items there are in the dataset, plus one (+1) for that 0-indexed item that we discard
+        max_sequence_len,  # The length of the longest session in the train/test dataset
+        max_number_of_nodes,  # The maximum number of unique items there is in a session in the dataset
+        train_dataset_len,  # The size of the train dataset
+        test_dataset_len,  # The size of the test dataset
     ) = get_dataset_metadata(DATASET_NAME)
 
     dataset_metadata = DatasetMetadata(
