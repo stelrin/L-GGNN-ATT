@@ -8,7 +8,7 @@ from model import Model
 # Model parameters
 DATASET_NAME = "test"
 BATCH_SIZE = 5
-PROPAGATION_SIZE = 100
+PROPAGATION_STEPS = 100
 HIDDEN_SIZE = 100
 
 # Optimizer parameters
@@ -73,7 +73,7 @@ def main():
     train_dataset = get_dataset(dataset_metadata, batch_size=BATCH_SIZE, train=True)
     test_dataset = get_dataset(dataset_metadata, batch_size=BATCH_SIZE, train=False)
 
-    model = Model(number_of_nodes=item_count, propagation_steps=PROPAGATION_SIZE, hidden_size=HIDDEN_SIZE)
+    model = Model(number_of_nodes=item_count, propagation_steps=PROPAGATION_STEPS, hidden_size=HIDDEN_SIZE)
 
     # Initial learning rate 0.001 decaying by 0.1 every 3 epochs
     DECAY = DECAY_STEP * (train_dataset_len / BATCH_SIZE)  # Decay every 3 epochs relative to the batch size
