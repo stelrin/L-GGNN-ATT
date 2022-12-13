@@ -3,6 +3,8 @@ from tensorflow import keras
 
 from preprocessing.prime_dataset import get_dataset_metadata
 from preprocessing.graph_formulation import DatasetMetadata, get_dataset
+from utils.dataset_metrics import sparse_to_dense_target
+from utils.mean_reciprocal_rank import MeanReciprocalRank
 from model import Model
 
 
@@ -21,10 +23,11 @@ DECAY_RATE = 0.1
 L2_PENALTY = 10**-5
 
 # Metrics parameters
-# TODO: Do not forget to set these to 20 when you're done debugging
+# TODO: Do not forget to set these to 20 when done debugging
 PRECISION_TOP_K = 4
 RECALL_TOP_K = 4
 MRR_TOP_K = 4
+
 
 # TODO: Should this function only handle the training loop or should it also handle the testing loop?
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
@@ -64,8 +67,10 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
 
 def testing_loop(model: Model, dataset: tf.data.Dataset):
 
+    # FIXME: Use reset_state instead of reinstantiating the objects
     metric_precision = tf.keras.metrics.Precision(top_k=PRECISION_TOP_K)
     metric_recall = tf.keras.metrics.Recall(top_k=RECALL_TOP_K)
+    metric_mrr = MeanReciprocalRank(top_k=MRR_TOP_K)
 
     for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in dataset:
         # (batch_size, item_count - 1)
@@ -90,28 +95,14 @@ def testing_loop(model: Model, dataset: tf.data.Dataset):
         # Recall@20
         metric_recall.update_state(y_pred=softmax_logits, y_true=dense_target)
 
-        # TODO: Implement MRR@20
+        # MRR@20
+        metric_mrr.update_state(y_pred=softmax_logits, y_true=dense_target)
 
     precision = metric_precision.result().numpy()
     recall = metric_recall.result().numpy()
+    mrr = metric_mrr.result().numpy()
 
-    return precision, recall
-
-
-# TODO: Move this to a utils file
-def sparse_to_dense_target(target: tf.Tensor, item_count: int):
-    target = target - 1  # We subtract 1 of the targets because the first element is not a real item, it's just there because item ids start at 1
-
-    # Sparse to dense classification targets
-    sparse_target = tf.sparse.SparseTensor(
-        values=tf.ones_like(target),
-        indices=[[i, target[i]] for i in range(len(target))],
-        dense_shape=[tf.shape(target)[0], item_count],  # (batch_size, item_count - 1)
-    )
-
-    dense_target = tf.sparse.to_dense(sparse_target)
-
-    return dense_target
+    return precision, recall, mrr
 
 
 def main():
@@ -142,10 +133,11 @@ def main():
 
     losses = training_loop(model, train_dataset, optimizer, train=True)
 
-    precision, recall = testing_loop(model, test_dataset)
+    precision, recall, mrr = testing_loop(model, test_dataset)
 
-    print(f"Precision@20: {precision * 100.0}%")
-    print(f"Recall@20: {recall * 100.0}%")
+    print("Precision@20: {:.2f}%".format(precision * 100.0))
+    print("Recall@20: {:.2f}%".format(recall * 100.0))
+    print("MRR@20: {:.2f}%".format(mrr * 100.0))
 
 
 if __name__ == "__main__":
