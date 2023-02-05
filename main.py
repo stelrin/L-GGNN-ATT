@@ -1,3 +1,4 @@
+from tqdm import tqdm
 import tensorflow as tf
 from tensorflow import keras
 
@@ -33,7 +34,7 @@ MRR_TOP_K = 4
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
     losses = []
 
-    for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in dataset:
+    for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in tqdm(dataset):
         with tf.GradientTape() as tape:
             # (batch_size, item_count - 1)
             logits = model(
@@ -67,12 +68,11 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
 
 def testing_loop(model: Model, dataset: tf.data.Dataset):
 
-    # FIXME: Use reset_state instead of reinstantiating the objects
     metric_precision = tf.keras.metrics.Precision(top_k=PRECISION_TOP_K)
     metric_recall = tf.keras.metrics.Recall(top_k=RECALL_TOP_K)
     metric_mrr = MeanReciprocalRank(top_k=MRR_TOP_K)
 
-    for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in dataset:
+    for (adj_in, adj_out, sequence_of_indexes, session_items, mask, target) in tqdm(dataset):
         # (batch_size, item_count - 1)
         logits = model(
             adj_in=adj_in,
@@ -89,14 +89,9 @@ def testing_loop(model: Model, dataset: tf.data.Dataset):
         # (batch_size, item_count - 1)
         dense_target = sparse_to_dense_target(target, tf.shape(softmax_logits)[1])
 
-        # Precision@20
-        metric_precision.update_state(y_pred=softmax_logits, y_true=dense_target)
-
-        # Recall@20
-        metric_recall.update_state(y_pred=softmax_logits, y_true=dense_target)
-
-        # MRR@20
-        metric_mrr.update_state(y_pred=softmax_logits, y_true=dense_target)
+        metric_precision.update_state(y_pred=softmax_logits, y_true=dense_target) # Precision@20
+        metric_recall.update_state(y_pred=softmax_logits, y_true=dense_target) # Recall@20
+        metric_mrr.update_state(y_pred=softmax_logits, y_true=dense_target) # MRR@20
 
     precision = metric_precision.result().numpy()
     recall = metric_recall.result().numpy()
@@ -107,7 +102,7 @@ def testing_loop(model: Model, dataset: tf.data.Dataset):
 
 def main():
     (
-        item_count,  # How many items there are in the dataset, plus one (+1) for that 0-indexed item that we discard
+        item_count,  # How many items there are in the dataset, plus one (+1) for the 0-indexed item that we discard
         max_sequence_len,  # The length of the longest session in the train/test dataset
         max_number_of_nodes,  # The maximum number of unique items there is in a session in the dataset
         train_dataset_len,  # The size of the train dataset
@@ -115,7 +110,7 @@ def main():
     ) = get_dataset_metadata(DATASET_NAME)
 
     dataset_metadata = DatasetMetadata(
-        name="test",
+        name=DATASET_NAME,
         max_number_of_nodes=max_number_of_nodes,
         max_sequence_len=max_sequence_len,
         item_count=item_count,
@@ -131,8 +126,11 @@ def main():
     decaying_learning_rate = keras.optimizers.schedules.ExponentialDecay(INITIAL_LEARNING_RATE, DECAY, DECAY_RATE, staircase=True)
     optimizer = keras.optimizers.Adam(decaying_learning_rate)
 
+    print("| Training {DATASET_NAME} dataset |")
     losses = training_loop(model, train_dataset, optimizer, train=True)
+    # TODO: Plot the losses
 
+    print("| Testing {DATASET_NAME} dataset |")
     precision, recall, mrr = testing_loop(model, test_dataset)
 
     print("Precision@20: {:.2f}%".format(precision * 100.0))
