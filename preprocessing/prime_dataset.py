@@ -1,5 +1,14 @@
+from typing import NamedTuple
 import numpy as np
 import csv
+
+class DatasetMetadata(NamedTuple):
+    name: str
+    max_number_of_nodes: int
+    max_sequence_len: int
+    item_count: int
+    train_dataset_size: int
+    test_dataset_size: int
 
 
 def get_dataset_metadata(dataset_directory: str):
@@ -21,4 +30,11 @@ def get_dataset_metadata(dataset_directory: str):
             else:
                 test_dataset_size = len(data)
 
-    return item_count, max_sequence_len, max_number_of_nodes, train_dataset_size, test_dataset_size
+    return DatasetMetadata(
+        dataset_directory,
+        max_number_of_nodes,
+        max_sequence_len,
+        item_count,
+        train_dataset_size,
+        test_dataset_size,
+    )

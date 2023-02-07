@@ -1,8 +1,8 @@
 import csv
 import tensorflow as tf
 from functools import partial
-from typing import NamedTuple
 
+from preprocessing.prime_dataset import DatasetMetadata
 
 def generator(data):
     for example in data:
@@ -102,15 +102,6 @@ def graph_formulation_lossless(row):
     # The adjacency matrices appear to be transposed in the original implementation;
     # This explains some of the unsimilarities between the implementation and the original paper.
     return adj_in, adj_out, sequence_of_indexes, session_items, mask, target
-
-
-# TODO: Move this to prime_dataset.py and add train_dataset_size and test_dataset_size to the metadata
-# prime_dataset.py/get_dataset_metadata should return a DatasetMetadata object (to get rid of the mess in main.py)
-class DatasetMetadata(NamedTuple):
-    name: str
-    max_number_of_nodes: int
-    max_sequence_len: int
-    item_count: int
 
 
 def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = True):
