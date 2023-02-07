@@ -8,6 +8,7 @@ class MeanReciprocalRank(tf.keras.metrics.Metric):
         self.top_k = top_k
         self.reset_state()
 
+    # FIXME: Would it make more sense to rename this method to init_state and have reset_state call it?
     def reset_state(self):
         self.sample_rr_accumulator = 0.0
         self.number_of_top_k_batches = 0

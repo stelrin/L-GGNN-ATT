@@ -25,9 +25,9 @@ L2_PENALTY = 10**-5
 
 # Metrics parameters
 # TODO: Do not forget to set these to 20 when done debugging
-PRECISION_TOP_K = 4
-RECALL_TOP_K = 4
-MRR_TOP_K = 4
+PRECISION_TOP_K = 20
+RECALL_TOP_K = 20
+MRR_TOP_K = 20
 
 
 # TODO: Should this function only handle the training loop or should it also handle the testing loop?
