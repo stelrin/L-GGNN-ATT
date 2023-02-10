@@ -63,7 +63,7 @@ def graph_formulation(row):
     adj_out = tf.math.divide(tf.transpose(adj), u_sum_out_tf)
 
     # always a one matrix, used to compute the length of the sequence after padding
-    mask = tf.fill(tf.shape(features), 1)
+    mask = tf.fill(tf.shape(features), 1) # NOTE: ones_like does just that
 
     return adj_in, adj_out, sequence_of_indexes, session_items, mask, target
 
@@ -114,7 +114,7 @@ def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = Tr
     dataset = dataset.map(graph_formulation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
     # TODO: shuffle should take the size of the train/test dataset
-    dataset = dataset.shuffle(100000)
+    dataset = dataset.shuffle(1000000)
 
     dataset = dataset.padded_batch(
         batch_size=batch_size,

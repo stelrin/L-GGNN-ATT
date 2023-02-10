@@ -24,13 +24,11 @@ DECAY_RATE = 0.1
 L2_PENALTY = 10**-5
 
 # Metrics parameters
-# TODO: Do not forget to set these to 20 when done debugging
 PRECISION_TOP_K = 20
 RECALL_TOP_K = 20
 MRR_TOP_K = 20
 
 
-# TODO: Should this function only handle the training loop or should it also handle the testing loop?
 def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimizers.Optimizer, train: bool = False):
     losses = []
 
