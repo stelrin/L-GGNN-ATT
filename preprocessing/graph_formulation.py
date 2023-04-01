@@ -1,13 +1,10 @@
 import csv
 import tensorflow as tf
-from functools import partial
+import numpy as np
+from collections import defaultdict
+from tqdm import tqdm
 
 from preprocessing.prime_dataset import DatasetMetadata
-
-def generator(data):
-    for example in data:
-        yield example
-
 
 def graph_formulation(row):
     # All the interactions in the sequence except the last one
@@ -67,7 +64,6 @@ def graph_formulation(row):
 
     return adj_in, adj_out, sequence_of_indexes, session_items, mask, target
 
-
 def graph_formulation_lossless(row):
     features = row[:-1]
     target = row[-1]
@@ -76,45 +72,84 @@ def graph_formulation_lossless(row):
 
     vector_length = tf.shape(features)[0]
     n_nodes = tf.shape(session_items)[0]
-    order = [0.0 for _ in range(n_nodes)]
+    
+    order = [0.0 for _ in range(n_nodes)]    
     indices = []
     values = []
 
-    for i in range(vector_length - 1):
-        order[sequence_of_indexes[i + 1]] += 1.0
-        indices.append([sequence_of_indexes[i].numpy(), sequence_of_indexes[i + 1].numpy()])
-        values.append(order[sequence_of_indexes[i + 1].numpy()])
+    if vector_length == 1:
+        adj_in = tf.zeros(shape=[1, 1], dtype=tf.float32)
+        adj_out = tf.zeros(shape=[1, 1], dtype=tf.float32)
+    else:
+        for i in range(vector_length - 1):
+            curr = sequence_of_indexes[i].numpy()
+            next = sequence_of_indexes[i + 1].numpy()
+            
+            order[next] += 1.0
+            indices.append([curr, next])
+            values.append(order[next])
 
-    indices = tf.constant(indices, dtype=tf.int64)
-    values = tf.constant(values, dtype=tf.float32)
-    
-    max_weight = tf.reduce_max(values)
+        indices = np.array(indices, dtype=np.int64)
+        values = np.array(values, dtype=np.float32)
+                
+        # @Ali ‒ What's the ideal course of action when edge (i, j) appears multiple times, merge them and sum their weights?
 
-    sparse_adjacency = tf.sparse.SparseTensor(dense_shape=[n_nodes, n_nodes], values=values, indices=indices)
-    sparse_adjacency = tf.sparse.reorder(sparse_adjacency)
-    
-    adj_in = tf.sparse.to_dense(sparse_adjacency)
-    
-    # Normalizing the adjacency matrices
-    adj_in = tf.divide(adj_in, max_weight)
-    adj_out = tf.transpose(adj_in)
+        max_weight = tf.reduce_max(values)
+        edge_weights = defaultdict(np.float32)
+
+        for (i, j, weight) in zip(indices[:, 0], indices[:, 1], values):
+            edge_weights[(i, j)] += weight
+
+        merged_indices = []
+        merged_values = []
+        for (i, j), weight in edge_weights.items():
+            merged_indices.append([i, j])
+            merged_values.append(weight)
+
+        merged_indices = tf.constant(merged_indices, dtype=tf.int64)
+        merged_values = tf.constant(merged_values, dtype=tf.float32)
+
+        sparse_adjacency = tf.sparse.SparseTensor(dense_shape=[n_nodes, n_nodes], values=merged_values, indices=merged_indices)
+        sparse_adjacency = tf.sparse.reorder(sparse_adjacency)
+        
+        # Or pick the maximum weight? (add validate_indices=True arg to .to_dense())
+        adj_in = tf.sparse.to_dense(sparse_adjacency)
+        
+        # Normalizing the adjacency matrices
+        adj_in = tf.divide(adj_in, max_weight)
+        adj_out = tf.transpose(adj_in)
     
     # The adjacency matrices appear to be transposed in the original implementation;
-    # This explains some of the unsimilarities between the implementation and the original paper.
+    # This explains some of the unsimilarities between the implementation and the original paper, variable names are misleading.
     return adj_in, adj_out, sequence_of_indexes, session_items, mask, target
 
 
-def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = True):
+def get_dataset(dataset_info: DatasetMetadata, batch_size: int, train: bool = True, lossless=False):
     with open(f"datasets/{dataset_info.name}/{'train' if train else 'test'}.csv", "r") as preprocessed_file:
         data = [list(map(int, rec)) for rec in csv.reader(preprocessed_file, delimiter=",")]
 
-    dataset = tf.data.Dataset.from_generator(partial(generator, data), output_types=(tf.int32))
+    print("Formulating session sequences into graph structures...")
 
-    # FIXME: this is redundant, formulate the graphs directly in the generator!
-    dataset = dataset.map(graph_formulation, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    if lossless:
+        # graph_formulation_lossless is not graph-based which means it can't be used with Dataset.map() to parallelize the transformation
+        data = [graph_formulation_lossless(row) for row in tqdm(data)]
+    else:
+        # Dataset.map() can be used to apply the graph_formulation transformation
+        data = [graph_formulation(row) for row in tqdm(data)]
+    
+    dataset = tf.data.Dataset.from_generator(
+        lambda: data,
+        output_types=(
+            tf.float32,  # adj_in
+            tf.float32,  # adj_out
+            tf.int32,    # sequence_of_indexes
+            tf.int32,    # session_items
+            tf.int32,    # mask
+            tf.int32,    # target
+        )
+    )
 
-    # TODO: shuffle should take the size of the train/test dataset
-    dataset = dataset.shuffle(1000000)
+    print("Padding batches...")
 
     dataset = dataset.padded_batch(
         batch_size=batch_size,
