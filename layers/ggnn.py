@@ -18,6 +18,7 @@ class GGNN(keras.layers.Layer):
         self.linear_message_passing_in = keras.layers.Dense(
             name="linear_message_passing_in",
             units=self.hidden_size,
+            input_dim=self.hidden_size,
             activation=None,
             kernel_initializer=standard_deviation_initializer,
             bias_initializer=standard_deviation_initializer,
@@ -26,13 +27,12 @@ class GGNN(keras.layers.Layer):
         self.linear_message_passing_out = keras.layers.Dense(
             name="linear_message_passing_out",
             units=self.hidden_size,
+            input_dim=self.hidden_size,
             activation=None,
             kernel_initializer=standard_deviation_initializer,
             bias_initializer=standard_deviation_initializer,
         )
 
-        self.linear_message_passing_in.build(self.hidden_size)
-        self.linear_message_passing_out.build(self.hidden_size)
 
     def call(self, node_representations: tf.Tensor, session_items: tf.Tensor, adj_in: tf.Tensor, adj_out: tf.Tensor, batch_size: tf.int32):
         # (batch_size, max_number_of_nodes, hidden_size)
@@ -66,12 +66,12 @@ class GGNN(keras.layers.Layer):
             # (batch_size * max_number_of_nodes, hidden_size * 2)
             a = tf.reshape(a, [-1, self.hidden_size * 2])
 
-            # TODO: Update RNN implementation to Keras API
+            # TODO: Update RNN implementation to use the Keras API
             # (batch_size * max_number_of_nodes, hidden_size)
             _, _node_vectors = tf.compat.v1.nn.dynamic_rnn(
                 cell=recurrent_cell,
-                inputs=tf.expand_dims(a, axis=1),
-                initial_state=_node_vectors,
+                inputs=tf.expand_dims(a, axis=1), # (batch_size * max_number_of_nodes, 1, hidden_sizew * 2) in which case: (max_time = 1) https://www.tensorflow.org/api_docs/python/tf/compat/v1/nn/dynamic_rnn, https://docs.w3cub.com/tensorflow~python/tf/nn/dynamic_rnn
+                initial_state=_node_vectors, # In case we ever decide to do multiple separate RNN passes for the GNN propagation, not to be confused with the number of sequential propagation steps for each cell, which is always 1 in our case
             )
 
         # (batch_size, max_number_of_nodes, hidden_size)

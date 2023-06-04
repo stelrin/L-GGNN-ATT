@@ -12,33 +12,36 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         self.init_weights()
 
     def init_weights(self):
+        # nn_1
         self.linear_last_item = keras.layers.Dense(
             name="linear_last_item",
             units=self.hidden_size,
+            input_dim=self.hidden_size,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             use_bias=False,
         )
 
+        # nn_2
         self.linear_sequence_items = keras.layers.Dense(
             name="linear_sequence_items",
             units=self.hidden_size,
+            input_dim=self.hidden_size,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             bias_initializer=tf.initializers.Zeros(),
         )
 
+        # nn_3
         self.linear_alpha = keras.layers.Dense(
             name="linear_alpha",
             units=1,
+            input_dim=self.hidden_size,
             activation=None,
             kernel_initializer=tf.initializers.RandomUniform(minval=-self.standard_deviation, maxval=self.standard_deviation),
             use_bias=False,
         )
 
-        self.linear_last_item.build(self.hidden_size)
-        self.linear_sequence_items.build(self.hidden_size)
-        self.linear_alpha.build(self.hidden_size)
 
     def get_last_item_representation(self, mask: tf.Tensor, sequence_of_indexes: tf.Tensor, node_vectors: tf.Tensor, batch_size: tf.int32):
         # (batch_size,)
@@ -50,11 +53,16 @@ class SessionGraphSoftAttention(keras.layers.Layer):
             tf.stack(
                 [tf.range(batch_size), tf.cast(sequence_length, tf.int32) - 1],
                 axis=1,
-            ),
+            ), # Each session's last item index in node_vectors
         )
 
         # (batch_size, hidden_size)
-        last_item_representation = tf.gather_nd(node_vectors, tf.stack([tf.range(batch_size), last_item_index], axis=1))
+        last_item_representation = tf.gather_nd(
+            node_vectors,
+            tf.stack(
+                [tf.range(batch_size), last_item_index],
+                axis=1)
+        )
 
         return last_item_representation
 
@@ -97,11 +105,11 @@ class SessionGraphSoftAttention(keras.layers.Layer):
         # (batch_size * max_sequence_len, 1)
         alpha = self.linear_alpha(_sigmoid_result)
 
-        # We get rid of the 0-indexed fictional item so it doesn't affect the aggregation
+        # We get rid of the 0-indexed fictional item's weights so it doesn't affect the aggregation
         # (batch_size * max_sequence_len, 1)
-        _alpha = tf.multiply(alpha, tf.reshape(mask, [-1, 1]))
+        _alpha = alpha * tf.reshape(mask, [-1, 1])
 
-        # We reshape it to calculate the aggregation (sum) of the node representations of each node in the session
+        # We reshape it to calculate the aggregation of the node representations of each node in the session
         # (batch_size, max_sequence_len, 1)
         _alpha = tf.reshape(_alpha, [batch_size, -1, 1])
 

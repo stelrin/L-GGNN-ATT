@@ -13,7 +13,7 @@ DATASET_NAME = "diginetica"
 LOSSLESS = True
 EPOCHS = 30
 BATCH_SIZE = 100
-PROPAGATION_STEPS = 1
+PROPAGATION_STEPS = 1 # Messaging-passing forward steps (not to be confused with RNN steps)
 HIDDEN_SIZE = 100
 
 # Optimizer parameters
@@ -49,13 +49,11 @@ def training_loop(model: Model, dataset: tf.data.Dataset, optimizer: tf.optimize
                 )
 
                 # (batch_size,)
-                # We subtract 1 of the targets because the first element is not a real item, it's just there because item ids start at 1
+                # We shift back the target ids by 1, because the first element of the node representations is not a real item
                 batch_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target - 1, logits=logits)
-
-                # (None,)
                 batch_loss = tf.reduce_mean(batch_loss)
 
-                # Applying L2 regularization on all trainable variables
+                # L2 regularization on all trainable variables
                 l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in model.trainable_variables]) * L2_PENALTY
                 batch_loss += l2_loss
 
@@ -129,8 +127,8 @@ def main():
 
         checkpoint.save('./checkpoints/training_checkpoints')
 
-    # Load the latest checkpoint
-    # checkpoint.restore("./checkpoints/training_checkpoints-30")    
+    # Latest Diginetica-lossless checkpoint
+    # checkpoint.restore("./checkpoints/training_checkpoints-30")
 
     hit, mrr = testing_loop(model, test_dataset, dataset_metadata)
     print("Hit@20: {:.6f} - MRR@20: {:.6f}".format(hit, mrr))

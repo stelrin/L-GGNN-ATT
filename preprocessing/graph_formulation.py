@@ -92,7 +92,7 @@ def graph_formulation_lossless(row):
         indices = np.array(indices, dtype=np.int64)
         values = np.array(values, dtype=np.float32)
                 
-        # @Ali ‒ What's the ideal course of action when edge (i, j) appears multiple times, merge them and sum their weights?
+        # @Ali ‒ What's the ideal course of action when edge (i, j) appears multiple times, merge them by summing their weights?
 
         max_weight = tf.reduce_max(values)
         edge_weights = defaultdict(np.float32)
