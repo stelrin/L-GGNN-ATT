@@ -9,7 +9,7 @@ from layers.linear_transformation import SessionRepresentationLinearTransformati
 
 class Model(keras.Model):
     def __init__(self, number_of_nodes: tf.int32, propagation_steps: tf.int32, hidden_size: tf.int32):
-        super(Model, self).__init__(name="sr_gnn")
+        super(Model, self).__init__(name="l_ggnn_att")
 
         self.number_of_nodes = number_of_nodes
         self.propagation_steps = propagation_steps
